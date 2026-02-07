@@ -5,86 +5,75 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { font-family: sans-serif; background: #0f172a; color: white; padding: 15px; }
+        body { font-family: sans-serif; background: #0f172a; color: white; padding: 15px; text-align: center; }
+        .box { background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; margin-top: 10px; }
         input, textarea { 
-            width: 100%; padding: 10px; margin-top: 5px; margin-bottom: 15px;
-            background: #1e293b; border: 1px solid #334155; color: white; border-radius: 8px; box-sizing: border-box;
+            width: 100%; padding: 12px; margin: 10px 0; background: #0f172a; border: 1px solid #334155; 
+            color: #3b82f6; border-radius: 8px; box-sizing: border-box; font-weight: bold;
         }
-        button { 
-            width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-bottom: 10px;
-        }
+        button { width: 100%; padding: 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin: 5px 0; }
         .btn-save { background: #3b82f6; color: white; }
         .btn-download { background: #10b981; color: white; }
-        .btn-clear { background: #ef4444; color: white; font-size: 11px; }
-        .list-item { 
-            background: #1e293b; padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 12px; border-left: 4px solid #3b82f6;
-            word-break: break-all;
-        }
+        .counter { font-size: 14px; color: #94a3b8; margin: 15px 0; }
+        #uid_label { color: #3b82f6; font-size: 12px; }
     </style>
 </head>
 <body>
-    <h3>🍪 FB Cookie Formatter</h3>
-    
-    <label>Set Password Paten:</label>
-    <input type="text" id="passInput" value="tasik321" placeholder="Masukkan password...">
+    <h3>🍪 Private Cookie Formatter</h3>
+    <div id="uid_label">Loading Profile...</div>
 
-    <label>Tempel Cookie di sini:</label>
-    <textarea id="cookieInput" rows="4" placeholder="datr=xxx; sb=xxx; ..."></textarea>
+    <div class="box">
+        <label style="font-size: 13px;">Password Paten:</label>
+        <input type="text" id="passInput" value="tasik321">
 
-    <button class="btn-save" onclick="saveCookie()">Simpan & Format</button>
-    <button class="btn-download" onclick="downloadExcel()">Download .XLSX</button>
-    
-    <hr style="border: 0.5px solid #334155; margin: 20px 0;">
-    
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-        <h4>Data Tersimpan:</h4>
-        <button class="btn-clear" style="width: auto;" onclick="clearData()">Hapus Semua</button>
+        <label style="font-size: 13px;">Tempel Cookie FB:</label>
+        <textarea id="cookieInput" rows="5" placeholder="Paste cookie di sini..."></textarea>
+
+        <button class="btn-save" onclick="saveCookie()">SIMPAN DATA</button>
+        
+        <div class="counter">Total Akun Tersimpan: <b id="totalCount" style="color:white">0</b></div>
+        
+        <button class="btn-download" onclick="downloadExcel()">DOWNLOAD EXCEL (.XLSX)</button>
     </div>
-    <div id="displayList"></div>
 
     <script>
-        const API_URL = "https://royal-cyndy-bangdit28-92d925bc.koyeb.app/"; // GANTI DENGAN URL KOYEB MU
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        const API_URL = "https://royal-cyndy-bangdit28-92d925bc.koyeb.app/"; 
+        const USER_ID = tg.initDataUnsafe.user ? tg.initDataUnsafe.user.id : "local_test";
+        
+        document.getElementById('uid_label').innerText = "User ID: " + USER_ID;
 
         async function saveCookie() {
             const cookie = document.getElementById('cookieInput').value;
             const password = document.getElementById('passInput').value;
-            
-            if(!cookie) return alert("Cookie masih kosong!");
+            if(!cookie) return alert("Cookie kosong!");
 
             const res = await fetch(`${API_URL}/save-cookie`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ cookie, password })
+                body: JSON.stringify({ user_id: USER_ID, cookie, password })
             });
             
             if(res.ok) {
                 document.getElementById('cookieInput').value = '';
-                loadData();
+                alert("Berhasil Disimpan!");
+                updateStatus();
             }
         }
 
-        async function loadData() {
-            const res = await fetch(`${API_URL}/get-all`);
+        async function updateStatus() {
+            const res = await fetch(`${API_URL}/get-status?user_id=${USER_ID}`);
             const data = await res.json();
-            let html = '';
-            data.reverse().forEach(item => {
-                html += `<div class="list-item"><b>Formatted:</b><br>${item.formatted}</div>`;
-            });
-            document.getElementById('displayList').innerHTML = html;
+            document.getElementById('totalCount').innerText = data.total;
         }
 
         function downloadExcel() {
-            window.open(`${API_URL}/download-excel`, '_blank');
+            window.open(`${API_URL}/download-excel?user_id=${USER_ID}`, '_blank');
         }
 
-        async function clearData() {
-            if(confirm("Hapus semua data tersimpan?")) {
-                await fetch(`${API_URL}/clear-data`, {method: 'POST'});
-                loadData();
-            }
-        }
-
-        loadData();
+        updateStatus();
     </script>
 </body>
 </html>
