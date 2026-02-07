@@ -1,25 +1,36 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { font-family: sans-serif; background: #0f172a; color: white; padding: 20px; text-align: center; }
         .box { background: #1e293b; padding: 20px; border-radius: 12px; }
-        input, textarea { width: 100%; padding: 12px; margin: 10px 0; background: #0f172a; border: 1px solid #334155; color: #3b82f6; border-radius: 8px; box-sizing: border-box; }
+        input, textarea { width: 100%; padding: 12px; margin: 10px 0; background: #0f172a; border: 1px solid #334155; color: #3b82f6; border-radius: 8px; box-sizing: border-box; font-weight: bold;}
         button { width: 100%; padding: 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin: 5px 0; }
         .btn-save { background: #3b82f6; color: white; }
         .btn-download { background: #10b981; color: white; }
+        .btn-clear { background: transparent; color: #ef4444; border: 1px solid #ef4444; font-size: 11px; margin-top: 20px; }
     </style>
 </head>
 <body>
-    <div id="uID">Connecting...</div>
+    <div id="uID" style="font-size: 10px; color: #64748b; margin-bottom: 10px;">Connecting...</div>
     <div class="box">
+        <label style="font-size:12px">Password Paten:</label>
         <input type="text" id="pIn" value="tasik321">
+        
+        <label style="font-size:12px">Tempel Cookie FB:</label>
         <textarea id="cIn" rows="5" placeholder="Paste Cookie..."></textarea>
+        
         <button class="btn-save" onclick="sv()">SIMPAN INSTAN</button>
-        <div style="margin:15px 0">Total: <b id="cnt">0</b></div>
-        <button class="btn-download" onclick="dl()">DOWNLOAD .TXT</button>
+        
+        <div style="margin:20px 0; border: 1px dashed #334155; padding: 10px; border-radius: 8px;">
+            Total Akun Tersimpan: <b id="cnt" style="color:#3b82f6; font-size: 20px;">0</b>
+        </div>
+        
+        <button class="btn-download" onclick="dl()">DOWNLOAD CSV (EXCEL)</button>
+        <button class="btn-clear" onclick="cl()">HAPUS SEMUA DATA SAYA</button>
     </div>
 
     <script>
@@ -27,27 +38,38 @@
         const UID = tg.initDataUnsafe.user ? String(tg.initDataUnsafe.user.id) : "test";
         document.getElementById('uID').innerText = "User ID: " + UID;
 
-        // --- GANTI LINK-LINK INI ---
-        const SAVE_API = "https://bot-cookie-ku.adityahikmahtiar866.workers.dev/save-cookie";
-        const DL_API = "https://bot-downloader.adityahikmahtiar866.workers.dev";
+        // --- KONFIGURASI LINK ---
+        const MAIN_API = "https://bot-cookie-ku.adityahikmahtiar866.workers.dev"; // Worker 1
+        const DL_API = "https://bot-downloader.adityahikmahtiar866.workers.dev"; // Worker 3
         const SB_URL = "https://ocurwurtpayzqqgfdlgk.supabase.co";
         const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9jdXJ3dXJ0cGF5enFxZ2ZkbGdrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0NDMzMDYsImV4cCI6MjA4NjAxOTMwNn0.2YWZc4LJzEXhCwuSPTo00fCfm7jawEmihVcwKFIYIiQ";
         const sb = supabase.createClient(SB_URL, SB_KEY);
 
         async function sv() {
-            const cookie = document.getElementById('cIn').value;
+            const cookie = document.getElementById('cIn').value.trim();
             const password = document.getElementById('pIn').value;
-            const res = await fetch(SAVE_API, {
+            if(!cookie) return alert("Isi cookienya!");
+            const res = await fetch(`${MAIN_API}/save-cookie`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ user_id: UID, cookie, password })
             });
-            if(res.ok) { alert("Saved!"); document.getElementById('cIn').value=''; upd(); }
+            if(res.ok) { document.getElementById('cIn').value=''; upd(); alert("Tersimpan!"); }
         }
 
         async function upd() {
             const { count } = await sb.from('cookies_fb').select('*', { count: 'exact', head: true }).eq('user_id', UID);
             document.getElementById('cnt').innerText = count || 0;
+        }
+
+        async function cl() {
+            if(!confirm("Yakin hapus semua data kamu?")) return;
+            const res = await fetch(`${MAIN_API}/clear-cookies`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ user_id: UID })
+            });
+            if(res.ok) { upd(); alert("Data dibersihkan!"); }
         }
 
         function dl() { window.open(`${DL_API}?user_id=${UID}`, '_blank'); }
