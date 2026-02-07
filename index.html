@@ -1,149 +1,57 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- SDK Telegram -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- SDK Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
     <style>
-        body { font-family: sans-serif; background: #16212e; color: white; padding: 15px; text-align: center; }
-        .box { background: #17212b; padding: 20px; border-radius: 12px; border: 1px solid #242f3d; }
-        input, textarea { 
-            width: 100%; padding: 12px; margin: 8px 0; background: #0e1621; border: 1px solid #242f3d; 
-            color: #64b5f6; border-radius: 8px; box-sizing: border-box; font-weight: bold; font-size: 14px;
-        }
-        button { width: 100%; padding: 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin: 5px 0; transition: 0.2s; }
-        button:active { transform: scale(0.98); }
-        .btn-save { background: #2481cc; color: white; }
-        .btn-download { background: #31b545; color: white; }
-        .btn-clear { background: transparent; color: #ec3942; border: 1px solid #ec3942; margin-top: 20px; font-size: 11px; }
-        .counter-box { margin: 20px 0; padding: 15px; background: #1c2733; border-radius: 8px; border: 1px dashed #2b3745; }
-        #totalCount { font-size: 32px; font-weight: bold; color: #64b5f6; }
-        #userDisplay { font-size: 10px; color: #708499; margin-bottom: 10px; }
+        body { font-family: sans-serif; background: #0f172a; color: white; padding: 20px; text-align: center; }
+        .box { background: #1e293b; padding: 20px; border-radius: 12px; }
+        input, textarea { width: 100%; padding: 12px; margin: 10px 0; background: #0f172a; border: 1px solid #334155; color: #3b82f6; border-radius: 8px; box-sizing: border-box; }
+        button { width: 100%; padding: 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin: 5px 0; }
+        .btn-save { background: #3b82f6; color: white; }
+        .btn-download { background: #10b981; color: white; }
     </style>
 </head>
 <body>
-    <div id="userDisplay">Connecting...</div>
-
+    <div id="uID">Connecting...</div>
     <div class="box">
-        <label style="font-size: 12px; color: #708499;">Password Akun:</label>
-        <input type="text" id="passInput" value="tasik321">
-
-        <label style="font-size: 12px; color: #708499;">Tempel Cookie FB:</label>
-        <textarea id="cookieInput" rows="4" placeholder="Paste cookie mentah di sini..."></textarea>
-
-        <button id="saveBtn" class="btn-save" onclick="saveData()">SIMPAN INSTAN</button>
-        
-        <div class="counter-box">
-            <div style="font-size: 12px; color: #708499;">Total Akun Tersimpan</div>
-            <div id="totalCount">0</div>
-        </div>
-        
-        <button class="btn-download" onclick="downloadExcel()">KIRIM FILE KE CHAT</button>
-        <button class="btn-clear" onclick="clearData()">HAPUS DATA SAYA</button>
+        <input type="text" id="pIn" value="tasik321">
+        <textarea id="cIn" rows="5" placeholder="Paste Cookie..."></textarea>
+        <button class="btn-save" onclick="sv()">SIMPAN INSTAN</button>
+        <div style="margin:15px 0">Total: <b id="cnt">0</b></div>
+        <button class="btn-download" onclick="dl()">DOWNLOAD .TXT</button>
     </div>
 
     <script>
         const tg = window.Telegram.WebApp;
-        tg.expand();
+        const UID = tg.initDataUnsafe.user ? String(tg.initDataUnsafe.user.id) : "test";
+        document.getElementById('uID').innerText = "User ID: " + UID;
 
-        // --- KONFIGURASI SUPABASE (GANTI DENGAN MILIKMU) ---
+        // --- GANTI LINK-LINK INI ---
+        const SAVE_API = "https://bot-cookie-ku.adityahikmahtiar866.workers.dev/save-cookie";
+        const DL_API = "https://bot-downloader.adityahikmahtiar866.workers.dev";
         const SB_URL = "https://ocurwurtpayzqqgfdlgk.supabase.co";
         const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9jdXJ3dXJ0cGF5enFxZ2ZkbGdrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0NDMzMDYsImV4cCI6MjA4NjAxOTMwNn0.2YWZc4LJzEXhCwuSPTo00fCfm7jawEmihVcwKFIYIiQ";
-        
-        const supabaseClient = supabase.createClient(SB_URL, SB_KEY);
+        const sb = supabase.createClient(SB_URL, SB_KEY);
 
-        // Ambil ID Telegram
-        const USER_ID = tg.initDataUnsafe.user ? String(tg.initDataUnsafe.user.id) : "User_Offline";
-        document.getElementById('userDisplay').innerText = "User ID: " + USER_ID;
-
-        // Fungsi ambil UID dari cookie c_user
-        function extractUID(cookie) {
-            const match = cookie.match(/c_user=(\d+)/);
-            return match ? match[1] : "UID_TIDAK_ADA";
-        }
-
-        // Fungsi Simpan
-        async function saveData() {
-            const cookie = document.getElementById('cookieInput').value.trim();
-            const password = document.getElementById('passInput').value;
-            const btn = document.getElementById('saveBtn');
-
-            if (!cookie) return alert("Cookie masih kosong bro!");
-
-            btn.disabled = true;
-            btn.innerText = "SEDANG MENYIMPAN...";
-
-            const uid = extractUID(cookie);
-            const formatted = `${uid}|${password}|${cookie}`;
-
-            const { error } = await supabaseClient
-                .from('cookies_fb')
-                .insert([{ user_id: USER_ID, uid, password, raw_cookie: cookie, formatted }]);
-
-            if (error) {
-                alert("Gagal simpan: " + error.message);
-            } else {
-                document.getElementById('cookieInput').value = '';
-                tg.HapticFeedback.notificationOccurred('success');
-                updateCounter();
-                alert("Berhasil disimpan!");
-            }
-            btn.disabled = false;
-            btn.innerText = "SIMPAN INSTAN";
-        }
-
-        // Update angka counter
-        async function updateCounter() {
-            try {
-                const { count, error } = await supabaseClient
-                    .from('cookies_fb')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('user_id', USER_ID);
-                
-                if (!error) document.getElementById('totalCount').innerText = count;
-            } catch (e) {
-                console.error(e);
-            }
-        }
-
-        // Fungsi Download (Dialihkan ke Bot Chat)
-        function downloadExcel() {
-            // Memberikan instruksi ke user karena Android tidak support direct download di Mini App
-            tg.showPopup({
-                title: 'Ambil File Excel',
-                message: 'Silakan tutup Mini App dan ketik /download di chat bot untuk menerima file Excel.',
-                buttons: [{type: 'ok'}]
+        async function sv() {
+            const cookie = document.getElementById('cIn').value;
+            const password = document.getElementById('pIn').value;
+            const res = await fetch(SAVE_API, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ user_id: UID, cookie, password })
             });
-            
-            // Mengirim data ke bot secara otomatis (jika didukung)
-            tg.sendData("/download");
-            
-            // Menutup Mini App agar user bisa langsung ke chat
-            setTimeout(() => {
-                tg.close();
-            }, 2000);
+            if(res.ok) { alert("Saved!"); document.getElementById('cIn').value=''; upd(); }
         }
 
-        // Fungsi Hapus Data
-        async function clearData() {
-            if (!confirm("Yakin hapus semua data akun kamu?")) return;
-            const { error } = await supabaseClient
-                .from('cookies_fb')
-                .delete()
-                .eq('user_id', USER_ID);
-            
-            if (!error) {
-                updateCounter();
-                alert("Data dibersihkan!");
-            }
+        async function upd() {
+            const { count } = await sb.from('cookies_fb').select('*', { count: 'exact', head: true }).eq('user_id', UID);
+            document.getElementById('cnt').innerText = count || 0;
         }
 
-        // Jalankan saat aplikasi dibuka
-        updateCounter();
+        function dl() { window.open(`${DL_API}?user_id=${UID}`, '_blank'); }
+        upd();
     </script>
 </body>
 </html>
