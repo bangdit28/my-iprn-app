@@ -5,55 +5,86 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #0e1621; color: white; padding: 15px; }
-        .fb-card { 
-            background: #17212b; border-radius: 10px; padding: 15px; margin-bottom: 12px; 
-            border: 1px solid #2b5278; position: relative; overflow: hidden;
+        body { font-family: sans-serif; background: #0f172a; color: white; padding: 15px; }
+        input, textarea { 
+            width: 100%; padding: 10px; margin-top: 5px; margin-bottom: 15px;
+            background: #1e293b; border: 1px solid #334155; color: white; border-radius: 8px; box-sizing: border-box;
         }
-        .code-display { font-size: 24px; color: #64b5f6; font-weight: bold; letter-spacing: 2px; }
-        .country { font-size: 12px; color: #8ab4f8; margin-bottom: 5px; }
-        .full-text { font-size: 11px; color: #aaa; margin-top: 8px; font-style: italic; }
-        .time { font-size: 10px; color: #555; text-align: right; }
-        .badge { background: #1877f2; color: white; font-size: 10px; padding: 2px 6px; border-radius: 4px; float: right; }
+        button { 
+            width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-bottom: 10px;
+        }
+        .btn-save { background: #3b82f6; color: white; }
+        .btn-download { background: #10b981; color: white; }
+        .btn-clear { background: #ef4444; color: white; font-size: 11px; }
+        .list-item { 
+            background: #1e293b; padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 12px; border-left: 4px solid #3b82f6;
+            word-break: break-all;
+        }
     </style>
 </head>
 <body>
-    <h3 style="text-align:center">🔵 FB Code Detector</h3>
-    <div id="list">Loading...</div>
+    <h3>🍪 FB Cookie Formatter</h3>
+    
+    <label>Set Password Paten:</label>
+    <input type="text" id="passInput" value="tasik321" placeholder="Masukkan password...">
+
+    <label>Tempel Cookie di sini:</label>
+    <textarea id="cookieInput" rows="4" placeholder="datr=xxx; sb=xxx; ..."></textarea>
+
+    <button class="btn-save" onclick="saveCookie()">Simpan & Format</button>
+    <button class="btn-download" onclick="downloadExcel()">Download .XLSX</button>
+    
+    <hr style="border: 0.5px solid #334155; margin: 20px 0;">
+    
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h4>Data Tersimpan:</h4>
+        <button class="btn-clear" style="width: auto;" onclick="clearData()">Hapus Semua</button>
+    </div>
+    <div id="displayList"></div>
 
     <script>
-        const tg = window.Telegram.WebApp;
-        tg.expand();
+        const API_URL = "https://royal-cyndy-bangdit28-xxxx.koyeb.app"; // GANTI DENGAN URL KOYEB MU
 
-        async function fetchFB() {
-            try {
-                // GANTI URL INI DENGAN URL KOYEB KAMU
-                const res = await fetch('https://royal-cyndy-bangdit28-92d925bc.koyeb.app/get-fb');
-                const data = await res.json();
-                let html = '';
-                
-                if (data.length === 0) {
-                    html = '<div style="text-align:center; color:#555">Belum ada kode FB masuk...</div>';
-                }
+        async function saveCookie() {
+            const cookie = document.getElementById('cookieInput').value;
+            const password = document.getElementById('passInput').value;
+            
+            if(!cookie) return alert("Cookie masih kosong!");
 
-                data.forEach(item => {
-                    html += `
-                    <div class="fb-card">
-                        <span class="badge">Facebook</span>
-                        <div class="country">From: ${item.range_sender}</div>
-                        <div class="code-display">${item.code}</div>
-                        <div class="full-text">"${item.full_text}"</div>
-                        <div class="time">${item.time}</div>
-                    </div>`;
-                });
-                document.getElementById('list').innerHTML = html;
-            } catch (e) {
-                document.getElementById('list').innerHTML = "Server Offline";
+            const res = await fetch(`${API_URL}/save-cookie`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ cookie, password })
+            });
+            
+            if(res.ok) {
+                document.getElementById('cookieInput').value = '';
+                loadData();
             }
         }
 
-        fetchFB();
-        setInterval(fetchFB, 10000); // Cek tiap 10 detik
+        async function loadData() {
+            const res = await fetch(`${API_URL}/get-all`);
+            const data = await res.json();
+            let html = '';
+            data.reverse().forEach(item => {
+                html += `<div class="list-item"><b>Formatted:</b><br>${item.formatted}</div>`;
+            });
+            document.getElementById('displayList').innerHTML = html;
+        }
+
+        function downloadExcel() {
+            window.open(`${API_URL}/download-excel`, '_blank');
+        }
+
+        async function clearData() {
+            if(confirm("Hapus semua data tersimpan?")) {
+                await fetch(`${API_URL}/clear-data`, {method: 'POST'});
+                loadData();
+            }
+        }
+
+        loadData();
     </script>
 </body>
 </html>
