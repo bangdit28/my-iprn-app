@@ -3,7 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- SDK Telegram -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- SDK Supabase (Database) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- SDK SheetJS (Bikin Excel) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    
     <style>
         body { font-family: sans-serif; background: #0f172a; color: white; padding: 15px; text-align: center; }
         .box { background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; }
@@ -11,107 +17,119 @@
             width: 100%; padding: 12px; margin: 8px 0; background: #0f172a; border: 1px solid #334155; 
             color: #3b82f6; border-radius: 8px; box-sizing: border-box; font-weight: bold; font-size: 14px;
         }
-        button { width: 100%; padding: 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin: 5px 0; transition: 0.2s; }
-        button:active { transform: scale(0.98); }
+        button { width: 100%; padding: 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin: 5px 0; }
         .btn-save { background: #3b82f6; color: white; }
         .btn-download { background: #10b981; color: white; }
-        .btn-clear { background: transparent; color: #ef4444; border: 1px solid #ef4444; margin-top: 20px; font-size: 12px; padding: 10px; }
+        .btn-clear { background: transparent; color: #ef4444; border: 1px solid #ef4444; margin-top: 20px; font-size: 11px; }
         .counter-box { margin: 20px 0; padding: 15px; background: #1e293b; border-radius: 8px; border: 1px dashed #334155; }
-        #status-text { font-size: 11px; color: #64748b; }
+        #totalCount { font-size: 32px; font-weight: bold; color: #3b82f6; }
     </style>
 </head>
 <body>
-    <div id="status-text">Menghubungkan ke Server...</div>
+    <div style="font-size: 10px; color: #64748b; margin-bottom: 10px;" id="userDisplay">Connecting...</div>
 
     <div class="box">
-        <label style="font-size: 12px; color: #94a3b8;">Password Akun:</label>
+        <label style="font-size: 12px; color: #94a3b8;">Password:</label>
         <input type="text" id="passInput" value="tasik321">
 
         <label style="font-size: 12px; color: #94a3b8;">Tempel Cookie FB:</label>
-        <textarea id="cookieInput" rows="4" placeholder="datr=xxx; ..."></textarea>
+        <textarea id="cookieInput" rows="4" placeholder="Paste cookie..."></textarea>
 
-        <button id="saveBtn" class="btn-save" onclick="saveCookie()">SIMPAN SEKARANG</button>
+        <button id="saveBtn" class="btn-save" onclick="saveData()">SIMPAN INSTAN</button>
         
         <div class="counter-box">
-            <div style="font-size: 12px; color: #94a3b8;">Total Akun Tersimpan</div>
-            <div id="totalCount" style="font-size: 32px; font-weight: bold; color: #3b82f6;">0</div>
+            <div style="font-size: 12px; color: #94a3b8;">Total Akun Kamu</div>
+            <div id="totalCount">0</div>
         </div>
         
-        <button class="btn-download" onclick="downloadExcel()">DOWNLOAD XLSX</button>
-        
-        <button class="btn-clear" onclick="clearMyData()">HAPUS SEMUA DATA SAYA</button>
+        <button class="btn-download" onclick="downloadExcel()">DOWNLOAD (.XLSX)</button>
+        <button class="btn-clear" onclick="clearData()">HAPUS DATA SAYA</button>
     </div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        const API_URL = "https://royal-cyndy-bangdit28-92d925bc.koyeb.app/"; 
-        const USER_ID = tg.initDataUnsafe.user ? tg.initDataUnsafe.user.id : "test_user";
-        
-        document.getElementById('status-text').innerText = "User ID: " + USER_ID;
+        // --- KONFIGURASI SUPABASE ---
+        const SUPABASE_URL = "https://ocurwurtpayzqqgfdlgk.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9jdXJ3dXJ0cGF5enFxZ2ZkbGdrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0NDMzMDYsImV4cCI6MjA4NjAxOTMwNn0.2YWZc4LJzEXhCwuSPTo00fCfm7jawEmihVcwKFIYIiQ";
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        async function saveCookie() {
-            const cookie = document.getElementById('cookieInput').value;
+        const USER_ID = tg.initDataUnsafe.user ? String(tg.initDataUnsafe.user.id) : "test_user";
+        document.getElementById('userDisplay').innerText = "User ID: " + USER_ID;
+
+        // Fungsi ambil UID dari cookie
+        function extractUID(cookie) {
+            const match = cookie.match(/c_user=(\d+)/);
+            return match ? match[1] : "UID_NOT_FOUND";
+        }
+
+        // Fungsi Simpan (Langsung ke Supabase)
+        async function saveData() {
+            const cookie = document.getElementById('cookieInput').value.trim();
             const password = document.getElementById('passInput').value;
             const btn = document.getElementById('saveBtn');
 
-            if(!cookie) return alert("Cookie masih kosong!");
+            if (!cookie) return alert("Isi cookienya dulu!");
 
-            // UI Feedback: Cegah klik ganda dan beri tanda loading
             btn.disabled = true;
-            btn.innerText = "SEDANG MENYIMPAN...";
-            btn.style.opacity = "0.5";
+            btn.innerText = "SAVING...";
 
-            try {
-                const res = await fetch(`${API_URL}/save-cookie`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ user_id: USER_ID, cookie, password })
-                });
-                
-                const result = await res.json();
-                if(res.ok) {
-                    // Update angka secara instan dari hasil response
-                    document.getElementById('totalCount').innerText = result.total;
-                    document.getElementById('cookieInput').value = '';
-                    tg.HapticFeedback.notificationOccurred('success');
-                }
-            } catch (e) {
-                alert("Koneksi gagal/Server sibuk. Coba lagi.");
-            } finally {
-                btn.disabled = false;
-                btn.innerText = "SIMPAN SEKARANG";
-                btn.style.opacity = "1";
+            const uid = extractUID(cookie);
+            const formatted = `${uid}|${password}|${cookie}`;
+
+            const { error } = await supabase
+                .from('cookies_fb')
+                .insert([{ user_id: USER_ID, uid, password, raw_cookie: cookie, formatted }]);
+
+            if (error) {
+                alert("Gagal simpan: " + error.message);
+            } else {
+                document.getElementById('cookieInput').value = '';
+                tg.HapticFeedback.notificationOccurred('success');
+                updateCounter();
             }
+            btn.disabled = false;
+            btn.innerText = "SIMPAN INSTAN";
         }
 
-        async function updateStatus() {
-            try {
-                const res = await fetch(`${API_URL}/get-status?user_id=${USER_ID}`);
-                const data = await res.json();
-                document.getElementById('totalCount').innerText = data.total;
-            } catch (e) {}
-        }
-
-        async function clearMyData() {
-            if(!confirm("Yakin ingin menghapus semua akun tersimpan kamu?")) return;
+        // Fungsi Update Angka
+        async function updateCounter() {
+            const { count, error } = await supabase
+                .from('cookies_fb')
+                .select('*', { count: 'exact', head: true })
+                .eq('user_id', USER_ID);
             
-            const res = await fetch(`${API_URL}/clear-data`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ user_id: USER_ID })
-            });
-            const data = await res.json();
-            document.getElementById('totalCount').innerText = data.total;
-            alert("Data kamu sudah bersih.");
+            if (!error) document.getElementById('totalCount').innerText = count;
         }
 
-        function downloadExcel() {
-            window.open(`${API_URL}/download-excel?user_id=${USER_ID}`, '_blank');
+        // Fungsi Download Excel (Bikin di Browser)
+        async function downloadExcel() {
+            const { data, error } = await supabase
+                .from('cookies_fb')
+                .select('uid, password, formatted')
+                .eq('user_id', USER_ID);
+
+            if (error || data.length === 0) return alert("Data kosong!");
+
+            const worksheet = XLSX.utils.json_to_sheet(data);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Cookies");
+            XLSX.writeFile(workbook, `FB_Cookies_${USER_ID}.xlsx`);
         }
 
-        updateStatus();
+        // Fungsi Clear Data
+        async function clearData() {
+            if (!confirm("Hapus semua data kamu?")) return;
+            const { error } = await supabase
+                .from('cookies_fb')
+                .delete()
+                .eq('user_id', USER_ID);
+            
+            if (!error) updateCounter();
+        }
+
+        updateCounter();
     </script>
 </body>
 </html>
