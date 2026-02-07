@@ -6,34 +6,40 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         body { font-family: sans-serif; background: #0f172a; color: white; padding: 15px; text-align: center; }
-        .box { background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; margin-top: 10px; }
+        .box { background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; }
         input, textarea { 
-            width: 100%; padding: 12px; margin: 10px 0; background: #0f172a; border: 1px solid #334155; 
-            color: #3b82f6; border-radius: 8px; box-sizing: border-box; font-weight: bold;
+            width: 100%; padding: 12px; margin: 8px 0; background: #0f172a; border: 1px solid #334155; 
+            color: #3b82f6; border-radius: 8px; box-sizing: border-box; font-weight: bold; font-size: 14px;
         }
-        button { width: 100%; padding: 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin: 5px 0; }
+        button { width: 100%; padding: 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin: 5px 0; transition: 0.2s; }
+        button:active { transform: scale(0.98); }
         .btn-save { background: #3b82f6; color: white; }
         .btn-download { background: #10b981; color: white; }
-        .counter { font-size: 14px; color: #94a3b8; margin: 15px 0; }
-        #uid_label { color: #3b82f6; font-size: 12px; }
+        .btn-clear { background: transparent; color: #ef4444; border: 1px solid #ef4444; margin-top: 20px; font-size: 12px; padding: 10px; }
+        .counter-box { margin: 20px 0; padding: 15px; background: #1e293b; border-radius: 8px; border: 1px dashed #334155; }
+        #status-text { font-size: 11px; color: #64748b; }
     </style>
 </head>
 <body>
-    <h3>🍪 Private Cookie Formatter</h3>
-    <div id="uid_label">Loading Profile...</div>
+    <div id="status-text">Menghubungkan ke Server...</div>
 
     <div class="box">
-        <label style="font-size: 13px;">Password Paten:</label>
+        <label style="font-size: 12px; color: #94a3b8;">Password Akun:</label>
         <input type="text" id="passInput" value="tasik321">
 
-        <label style="font-size: 13px;">Tempel Cookie FB:</label>
-        <textarea id="cookieInput" rows="5" placeholder="Paste cookie di sini..."></textarea>
+        <label style="font-size: 12px; color: #94a3b8;">Tempel Cookie FB:</label>
+        <textarea id="cookieInput" rows="4" placeholder="datr=xxx; ..."></textarea>
 
-        <button class="btn-save" onclick="saveCookie()">SIMPAN DATA</button>
+        <button id="saveBtn" class="btn-save" onclick="saveCookie()">SIMPAN SEKARANG</button>
         
-        <div class="counter">Total Akun Tersimpan: <b id="totalCount" style="color:white">0</b></div>
+        <div class="counter-box">
+            <div style="font-size: 12px; color: #94a3b8;">Total Akun Tersimpan</div>
+            <div id="totalCount" style="font-size: 32px; font-weight: bold; color: #3b82f6;">0</div>
+        </div>
         
-        <button class="btn-download" onclick="downloadExcel()">DOWNLOAD EXCEL (.XLSX)</button>
+        <button class="btn-download" onclick="downloadExcel()">DOWNLOAD XLSX</button>
+        
+        <button class="btn-clear" onclick="clearMyData()">HAPUS SEMUA DATA SAYA</button>
     </div>
 
     <script>
@@ -41,32 +47,64 @@
         tg.expand();
 
         const API_URL = "https://royal-cyndy-bangdit28-92d925bc.koyeb.app/"; 
-        const USER_ID = tg.initDataUnsafe.user ? tg.initDataUnsafe.user.id : "local_test";
+        const USER_ID = tg.initDataUnsafe.user ? tg.initDataUnsafe.user.id : "test_user";
         
-        document.getElementById('uid_label').innerText = "User ID: " + USER_ID;
+        document.getElementById('status-text').innerText = "User ID: " + USER_ID;
 
         async function saveCookie() {
             const cookie = document.getElementById('cookieInput').value;
             const password = document.getElementById('passInput').value;
-            if(!cookie) return alert("Cookie kosong!");
+            const btn = document.getElementById('saveBtn');
 
-            const res = await fetch(`${API_URL}/save-cookie`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ user_id: USER_ID, cookie, password })
-            });
-            
-            if(res.ok) {
-                document.getElementById('cookieInput').value = '';
-                alert("Berhasil Disimpan!");
-                updateStatus();
+            if(!cookie) return alert("Cookie masih kosong!");
+
+            // UI Feedback: Cegah klik ganda dan beri tanda loading
+            btn.disabled = true;
+            btn.innerText = "SEDANG MENYIMPAN...";
+            btn.style.opacity = "0.5";
+
+            try {
+                const res = await fetch(`${API_URL}/save-cookie`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ user_id: USER_ID, cookie, password })
+                });
+                
+                const result = await res.json();
+                if(res.ok) {
+                    // Update angka secara instan dari hasil response
+                    document.getElementById('totalCount').innerText = result.total;
+                    document.getElementById('cookieInput').value = '';
+                    tg.HapticFeedback.notificationOccurred('success');
+                }
+            } catch (e) {
+                alert("Koneksi gagal/Server sibuk. Coba lagi.");
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "SIMPAN SEKARANG";
+                btn.style.opacity = "1";
             }
         }
 
         async function updateStatus() {
-            const res = await fetch(`${API_URL}/get-status?user_id=${USER_ID}`);
+            try {
+                const res = await fetch(`${API_URL}/get-status?user_id=${USER_ID}`);
+                const data = await res.json();
+                document.getElementById('totalCount').innerText = data.total;
+            } catch (e) {}
+        }
+
+        async function clearMyData() {
+            if(!confirm("Yakin ingin menghapus semua akun tersimpan kamu?")) return;
+            
+            const res = await fetch(`${API_URL}/clear-data`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ user_id: USER_ID })
+            });
             const data = await res.json();
             document.getElementById('totalCount').innerText = data.total;
+            alert("Data kamu sudah bersih.");
         }
 
         function downloadExcel() {
