@@ -1,52 +1,59 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IPRN Monitor</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { font-family: sans-serif; background: #121212; color: white; padding: 20px; }
-        .card { background: #1e1e1e; border-radius: 12px; padding: 15px; margin-bottom: 10px; border-left: 5px solid #444; }
-        .gacor { border-left: 5px solid #00ff00; } /* Hijau kalau gacor */
-        .range { font-size: 1.2em; font-weight: bold; }
-        .hits { color: #aaa; }
-        .status { float: right; font-weight: bold; }
+        body { font-family: 'Segoe UI', sans-serif; background: #0e1621; color: white; padding: 15px; }
+        .fb-card { 
+            background: #17212b; border-radius: 10px; padding: 15px; margin-bottom: 12px; 
+            border: 1px solid #2b5278; position: relative; overflow: hidden;
+        }
+        .code-display { font-size: 24px; color: #64b5f6; font-weight: bold; letter-spacing: 2px; }
+        .country { font-size: 12px; color: #8ab4f8; margin-bottom: 5px; }
+        .full-text { font-size: 11px; color: #aaa; margin-top: 8px; font-style: italic; }
+        .time { font-size: 10px; color: #555; text-align: right; }
+        .badge { background: #1877f2; color: white; font-size: 10px; padding: 2px 6px; border-radius: 4px; float: right; }
     </style>
 </head>
 <body>
-    <h3>🚀 IPRN Gacor Detector</h3>
-    <div id="status-container">Memuat data terbaru...</div>
+    <h3 style="text-align:center">🔵 FB Code Detector</h3>
+    <div id="list">Loading...</div>
 
     <script>
         const tg = window.Telegram.WebApp;
-        tg.expand(); // Biar tampilan penuh
+        tg.expand();
 
-        // Ganti URL ini nanti dengan URL backend Koyeb kamu
-        const BACKEND_URL = "https://backend-kamu.koyeb.app/data";
-
-        async function loadData() {
+        async function fetchFB() {
             try {
-                const response = await fetch(BACKEND_URL);
-                const data = await response.json();
+                // GANTI URL INI DENGAN URL KOYEB KAMU
+                const res = await fetch('https://backend-kamu.koyeb.app/get-fb');
+                const data = await res.json();
                 let html = '';
+                
+                if (data.length === 0) {
+                    html = '<div style="text-align:center; color:#555">Belum ada kode FB masuk...</div>';
+                }
+
                 data.forEach(item => {
-                    let isGacor = item.hits > 100 ? 'gacor' : '';
                     html += `
-                        <div class="card ${isGacor}">
-                            <span class="status">${item.hits > 100 ? '🔥 HOT' : '💤 SLOW'}</span>
-                            <div class="range">${item.range}</div>
-                            <div class="hits">Hits: ${item.hits}/min | Payout: ${item.payout}</div>
-                        </div>`;
+                    <div class="fb-card">
+                        <span class="badge">Facebook</span>
+                        <div class="country">From: ${item.range_sender}</div>
+                        <div class="code-display">${item.code}</div>
+                        <div class="full-text">"${item.full_text}"</div>
+                        <div class="time">${item.time}</div>
+                    </div>`;
                 });
-                document.getElementById('status-container').innerHTML = html;
+                document.getElementById('list').innerHTML = html;
             } catch (e) {
-                document.getElementById('status-container').innerHTML = "Gagal ambil data. Pastikan Backend nyala.";
+                document.getElementById('list').innerHTML = "Server Offline";
             }
         }
 
-        loadData();
-        setInterval(loadData, 30000); // Update tiap 30 detik
+        fetchFB();
+        setInterval(fetchFB, 10000); // Cek tiap 10 detik
     </script>
 </body>
 </html>
