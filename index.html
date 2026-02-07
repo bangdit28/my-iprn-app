@@ -3,11 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- SDK Telegram -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- Library Supabase -->
+    <!-- SDK Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- Library Excel -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
     
     <style>
         body { font-family: sans-serif; background: #16212e; color: white; padding: 15px; text-align: center; }
@@ -16,7 +15,8 @@
             width: 100%; padding: 12px; margin: 8px 0; background: #0e1621; border: 1px solid #242f3d; 
             color: #64b5f6; border-radius: 8px; box-sizing: border-box; font-weight: bold; font-size: 14px;
         }
-        button { width: 100%; padding: 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin: 5px 0; }
+        button { width: 100%; padding: 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin: 5px 0; transition: 0.2s; }
+        button:active { transform: scale(0.98); }
         .btn-save { background: #2481cc; color: white; }
         .btn-download { background: #31b545; color: white; }
         .btn-clear { background: transparent; color: #ec3942; border: 1px solid #ec3942; margin-top: 20px; font-size: 11px; }
@@ -29,20 +29,20 @@
     <div id="userDisplay">Connecting...</div>
 
     <div class="box">
-        <label style="font-size: 12px; color: #708499;">Password:</label>
+        <label style="font-size: 12px; color: #708499;">Password Akun:</label>
         <input type="text" id="passInput" value="tasik321">
 
         <label style="font-size: 12px; color: #708499;">Tempel Cookie FB:</label>
-        <textarea id="cookieInput" rows="4" placeholder="Paste cookie..."></textarea>
+        <textarea id="cookieInput" rows="4" placeholder="Paste cookie mentah di sini..."></textarea>
 
         <button id="saveBtn" class="btn-save" onclick="saveData()">SIMPAN INSTAN</button>
         
         <div class="counter-box">
-            <div style="font-size: 12px; color: #708499;">Total Akun Kamu</div>
+            <div style="font-size: 12px; color: #708499;">Total Akun Tersimpan</div>
             <div id="totalCount">0</div>
         </div>
         
-        <button class="btn-download" onclick="downloadExcel()">DOWNLOAD (.XLSX)</button>
+        <button class="btn-download" onclick="downloadExcel()">KIRIM FILE KE CHAT</button>
         <button class="btn-clear" onclick="clearData()">HAPUS DATA SAYA</button>
     </div>
 
@@ -50,31 +50,32 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        // --- KONFIGURASI SUPABASE ---
+        // --- KONFIGURASI SUPABASE (GANTI DENGAN MILIKMU) ---
         const SB_URL = "https://ocurwurtpayzqqgfdlgk.supabase.co";
         const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9jdXJ3dXJ0cGF5enFxZ2ZkbGdrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0NDMzMDYsImV4cCI6MjA4NjAxOTMwNn0.2YWZc4LJzEXhCwuSPTo00fCfm7jawEmihVcwKFIYIiQ";
         
-        // Perbaikan inisialisasi (biar gak tabrakan nama variabel)
         const supabaseClient = supabase.createClient(SB_URL, SB_KEY);
 
-        // Ambil User ID
+        // Ambil ID Telegram
         const USER_ID = tg.initDataUnsafe.user ? String(tg.initDataUnsafe.user.id) : "User_Offline";
         document.getElementById('userDisplay').innerText = "User ID: " + USER_ID;
 
+        // Fungsi ambil UID dari cookie c_user
         function extractUID(cookie) {
             const match = cookie.match(/c_user=(\d+)/);
-            return match ? match[1] : "UID_NOT_FOUND";
+            return match ? match[1] : "UID_TIDAK_ADA";
         }
 
+        // Fungsi Simpan
         async function saveData() {
             const cookie = document.getElementById('cookieInput').value.trim();
             const password = document.getElementById('passInput').value;
             const btn = document.getElementById('saveBtn');
 
-            if (!cookie) return alert("Isi cookienya dulu!");
+            if (!cookie) return alert("Cookie masih kosong bro!");
 
             btn.disabled = true;
-            btn.innerText = "SAVING...";
+            btn.innerText = "SEDANG MENYIMPAN...";
 
             const uid = extractUID(cookie);
             const formatted = `${uid}|${password}|${cookie}`;
@@ -89,11 +90,13 @@
                 document.getElementById('cookieInput').value = '';
                 tg.HapticFeedback.notificationOccurred('success');
                 updateCounter();
+                alert("Berhasil disimpan!");
             }
             btn.disabled = false;
             btn.innerText = "SIMPAN INSTAN";
         }
 
+        // Update angka counter
         async function updateCounter() {
             try {
                 const { count, error } = await supabaseClient
@@ -103,26 +106,31 @@
                 
                 if (!error) document.getElementById('totalCount').innerText = count;
             } catch (e) {
-                console.log(e);
+                console.error(e);
             }
         }
 
-        async function downloadExcel() {
-            const { data, error } = await supabaseClient
-                .from('cookies_fb')
-                .select('uid, password, formatted')
-                .eq('user_id', USER_ID);
-
-            if (error || !data || data.length === 0) return alert("Data kosong!");
-
-            const worksheet = XLSX.utils.json_to_sheet(data);
-            const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "Cookies");
-            XLSX.writeFile(workbook, `FB_Cookies_${USER_ID}.xlsx`);
+        // Fungsi Download (Dialihkan ke Bot Chat)
+        function downloadExcel() {
+            // Memberikan instruksi ke user karena Android tidak support direct download di Mini App
+            tg.showPopup({
+                title: 'Ambil File Excel',
+                message: 'Silakan tutup Mini App dan ketik /download di chat bot untuk menerima file Excel.',
+                buttons: [{type: 'ok'}]
+            });
+            
+            // Mengirim data ke bot secara otomatis (jika didukung)
+            tg.sendData("/download");
+            
+            // Menutup Mini App agar user bisa langsung ke chat
+            setTimeout(() => {
+                tg.close();
+            }, 2000);
         }
 
+        // Fungsi Hapus Data
         async function clearData() {
-            if (!confirm("Hapus semua data kamu?")) return;
+            if (!confirm("Yakin hapus semua data akun kamu?")) return;
             const { error } = await supabaseClient
                 .from('cookies_fb')
                 .delete()
@@ -130,11 +138,11 @@
             
             if (!error) {
                 updateCounter();
-                alert("Data berhasil dihapus!");
+                alert("Data dibersihkan!");
             }
         }
 
-        // Jalankan saat start
+        // Jalankan saat aplikasi dibuka
         updateCounter();
     </script>
 </body>
